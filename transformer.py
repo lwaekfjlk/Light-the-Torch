@@ -412,7 +412,6 @@ class SimpleLossCompute:
 def run_epoch(data_iter, model, loss_compute):
   total_tokens = 0
   total_loss = 0
-  print(data_iter.shape)
   for i,batch in enumerate(data_iter):
     out = model.forward(batch.src, batch.tgt,batch.src_mask,batch.tgt_mask)
 
@@ -421,7 +420,7 @@ def run_epoch(data_iter, model, loss_compute):
 
     total_loss += loss
     total_tokens += batch.ntokens
-    if (i % 50 == 0):
+    if (i % 20 == 19):
       print("step = {} , loss per token = {}".format(i,loss/batch.ntokens))
 
   return total_loss / total_tokens
