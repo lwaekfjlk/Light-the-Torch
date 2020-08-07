@@ -431,6 +431,12 @@ def greedy_decode(model, src, src_mask, max_len, start_symbol):
   memory = model.encode(src, src_mask)
   ys = torch.ones(1, 1).fill_(start_symbol).type_as(src.data)
   for i in range(max_len-1):
+
+      # when it is not training
+      # the only part of the decode is  memory
+      # tgt is missing here
+      # therefore,  we achive the src_embedding ---> probility vocab
+      # without the help of tgt_embedding
       out = model.decode(memory, src_mask, 
                          Variable(ys), 
                          Variable(subsequent_mask(ys.size(1))
@@ -438,8 +444,7 @@ def greedy_decode(model, src, src_mask, max_len, start_symbol):
       prob = model.generator(out[:, -1])
       _, next_word = torch.max(prob, dim = 1)
       next_word = next_word.data[0]
-      ys = torch.cat([ys, 
-                      torch.ones(1, 1).type_as(src.data).fill_(next_word)], dim=1)
+      ys = torch.cat([ys, torch.ones(1, 1).type_as(src.data).fill_(next_word)], dim=1)
   return ys
 
 #==============================================
@@ -454,6 +459,7 @@ def main():
     model.train()
     run_epoch(data_gen(V, 30, 20), model, SimpleLossCompute(model.generator, criterion, model_opt))
     model.eval()
+    # stop doing optimize
     print(run_epoch(data_gen(V, 30, 5), model, SimpleLossCompute(model.generator, criterion, None)))
   
   model.eval()
