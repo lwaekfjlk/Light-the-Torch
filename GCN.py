@@ -1,8 +1,58 @@
+import time
+import numpy as np
 import dgl
 import dgl.function as fn
 import torch
-import torch.nn.function as F
+import torch.nn.functional as F
 from dgl import DGLGraph
+import torch.nn as nn
+
+from dgl.data import citation_graph as citegrh
+import networkx as nx
+
+def load_cora_data():
+    data = citegrh.load_cora()
+    features = torch.FloatTensor(data.features)
+    labels = torch.LongTensor(data.labels)
+    train_mask = torch.BoolTensor(data.train_mask)
+    test_mask = torch.BoolTensor(data.test_mask)
+    g = DGLGraph(data.graph)
+    return g, features, labels, train_mask, test_mask
+
+def evaluate(model, g, features, labels, mask):
+    model.eval()
+    with torch.no_grad():
+        logits = model(g, features)
+        logits = logits[mask]
+        labels = labels[mask]
+        _, indices = torch.max(logits, dim=1)
+        correct = torch.sum(indices == labels)
+        return correct.item() * 1.0  / len(labels)
+
+def train(net):
+    g, features, labels, train_mask, test_mask = load_cora_data()
+    g.add_edges(g.nodes(), g.nodes())
+    optimizer = torch.optim.Adam(net.parameters(), lr=0.01)
+    dur = []
+
+    for epoch in range(50):
+        if epoch >= 3:
+            t0 = time.time()
+
+        net.train()
+        logits = net(g, features)
+        logp = F.log_softmax(logits, 1)
+        loss = F.nll_loss(logp[train_mask], labels[train_mask])
+
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        if epoch >= 3:
+            dur.append(time.time() - t0)
+
+        acc = evaluate(net, g, features, labels, test_mask)
+        print("epoch {} | loss {} | acc {} | time {}".format(epoch, loss.item(), acc, np.mean(dur)))
 
 # message function
 gcn_msg = fn.copy_src(src='h', out='m')
@@ -31,4 +81,7 @@ class GNN(nn.Module):
         x=  self.layer2(g, x)
         return x
 
-model = GNN()
+if __name__ == '__main__':
+    model = GNN()
+    train(model)
+
