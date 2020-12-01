@@ -10,6 +10,33 @@ import torch.nn as nn
 from dgl.data import citation_graph as citegrh
 import networkx as nx
 
+# message function
+gcn_msg = fn.copy_src(src='h', out='m')
+# reduce function
+gcn_reduce = fn.sum(msg='m', out='h')
+
+class GCNLayer(nn.Module):
+    def __init__(self, in_feats, out_feats):
+        super(GCNLayer, self).__init__()
+        self.linear = nn.Linear(in_feats, out_feats)
+    def forward(self, g, feature):
+        with g.local_scope():
+            g.ndata['h'] = feature
+            g.update_all(gcn_msg, gcn_reduce)
+            h = g.ndata['h']
+            return self.linear(h)
+
+class GNN(nn.Module):
+    def __init__(self):
+        super(GNN, self).__init__()
+        self.layer1 = GCNLayer(1433, 16)
+        self.layer2 = GCNLayer(16, 7)
+
+    def forward(self, g, features):
+        x = F.relu(self.layer1(g, features))
+        x=  self.layer2(g, x)
+        return x
+
 def load_cora_data():
     data = citegrh.load_cora()
     features = torch.FloatTensor(data.features)
@@ -53,33 +80,6 @@ def train(net):
 
         acc = evaluate(net, g, features, labels, test_mask)
         print("\r epoch {} | loss {} | acc {} | time {}".format(epoch, loss.item(), acc, np.mean(dur)),end='')
-
-# message function
-gcn_msg = fn.copy_src(src='h', out='m')
-# reduce function
-gcn_reduce = fn.sum(msg='m', out='h')
-
-class GCNLayer(nn.Module):
-    def __init__(self, in_feats, out_feats):
-        super(GCNLayer, self).__init__()
-        self.linear = nn.Linear(in_feats, out_feats)
-    def forward(self, g, feature):
-        with g.local_scope():
-            g.ndata['h'] = feature
-            g.update_all(gcn_msg, gcn_reduce)
-            h = g.ndata['h']
-            return self.linear(h)
-
-class GNN(nn.Module):
-    def __init__(self):
-        super(GNN, self).__init__()
-        self.layer1 = GCNLayer(1433, 16)
-        self.layer2 = GCNLayer(16, 7)
-
-    def forward(self, g, features):
-        x = F.relu(self.layer1(g, features))
-        x=  self.layer2(g, x)
-        return x
 
 if __name__ == '__main__':
     model = GNN()
