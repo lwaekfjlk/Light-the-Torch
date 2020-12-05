@@ -12,7 +12,7 @@ from dgl.data import citation_graph as citegrh
 import networkx as nx
 
 from tensorboardX import SummaryWriter
-writer = SummaryWriter('log')
+writer = SummaryWriter('log/' + str(int(time.time())))
 
 def load_cora_data():
     data = citegrh.load_cora()
